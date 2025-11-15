@@ -59,6 +59,7 @@ async function callAzureFunction(azureUrl, sharedSecret, payloadJson) {
 
 async function callCognitiveServices(payload) {
   if (!SPEECH_KEY || !SPEECH_REGION) {
+    console.error('Missing Azure config:', { hasKey: !!SPEECH_KEY, hasRegion: !!SPEECH_REGION });
     return {
       statusCode: 500,
       bodyJson: {
@@ -70,6 +71,7 @@ async function callCognitiveServices(payload) {
       }
     };
   }
+  console.log('Azure config check passed:', { region: SPEECH_REGION, keyPrefix: SPEECH_KEY?.substring(0, 8) + '...' });
 
   const started = Date.now();
   const translateTarget = payload.translateTo || payload.targetLanguage || null;
@@ -158,12 +160,10 @@ async function synthesizeSpeech({ text, language, voice, format }) {
   const resolvedVoice = resolveVoice(language, voice);
   const fmt = AUDIO_FORMATS[format] || AUDIO_FORMATS['audio/mp3'];
 
-  const ssml = `
-<speak version="1.0" xml:lang="${language}">
-  <voice name="${resolvedVoice}">${escapeXml(text)}</voice>
-</speak>`;
+  const ssml = `<speak version="1.0" xml:lang="${language}"><voice name="${resolvedVoice}">${escapeXml(text)}</voice></speak>`;
 
   const endpoint = `https://${SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
+  console.log('Calling Azure Speech:', { endpoint, language, voice: resolvedVoice, format: fmt.outputFormat, textLength: text.length });
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -177,6 +177,13 @@ async function synthesizeSpeech({ text, language, voice, format }) {
 
   if (!res.ok) {
     const textResp = await res.text();
+    console.error('Azure Speech API error:', {
+      status: res.status,
+      statusText: res.statusText,
+      body: textResp,
+      endpoint,
+      headers: Object.fromEntries(res.headers.entries())
+    });
     const err = new Error(`Azure Speech error: ${textResp || res.status}`);
     err.code = 'AZURE_TTS_ERROR';
     err.statusCode = res.status;
@@ -189,7 +196,10 @@ async function synthesizeSpeech({ text, language, voice, format }) {
 }
 
 function resolveVoice(language, requestedVoice) {
-  if (requestedVoice) return requestedVoice;
+  // Treat 'default' as "no voice specified" - Azure doesn't accept literal 'default'
+  if (requestedVoice && requestedVoice !== 'default') {
+    return requestedVoice;
+  }
   if (language && VOICE_MAP[language]) {
     return VOICE_MAP[language];
   }
