@@ -12,15 +12,27 @@
  * The response is normalized to:
  *   { success, requestId, mode, outputText, source }
  *
+ * On error, we return:
+ *   { success: false, requestId, mode, error: { code, message, details }, fallbackText }
+ *
+ * `fallbackText` is just the original input text so the frontend still has
+ * something to read even if the LLM fails.
+ *
  * This is the Azure LLM backend I implemented for PatriotHacks to power the
  * simplify/summarize accessibility feature in our browser extension.
  */
+
+// src/llmHandler.js
+// Lambda handler for the /llm endpoint.
+// This is the bridge between the browser extension and Azure OpenAI mini.
 
 const { makeError } = require('./utils');
 const { simplifyText, summarizeText } = require('./azureLlmClient');
 
 // Optional: cap length here as well for extra safety.
 const MAX_TEXT_LENGTH = Number(process.env.LLM_MAX_TEXT_LENGTH || 8000);
+
+const ALLOWED_MODES = new Set(['simplify', 'summarize']);
 
 /**
  * Helper to standardize responses with CORS headers so the browser extension
@@ -39,73 +51,74 @@ function buildResponse(statusCode, body) {
 }
 
 /**
- * Generate a simple request ID if the client didn't send one.
+ * Safely parse the JSON body from an API Gateway event.
  */
-function makeRequestId(prefix = 'llm') {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `${prefix}-${Date.now().toString(36)}-${rand}`;
+function parseBody(event) {
+  if (!event || typeof event.body !== 'string') {
+    return {};
+  }
+  try {
+    return JSON.parse(event.body);
+  } catch (err) {
+    throw makeError('BAD_REQUEST', 'Request body must be valid JSON.', {
+      rawBody: event.body,
+    });
+  }
 }
 
-exports.handler = async (event) => {
+/**
+ * Clamp text length to avoid blowing token limits.
+ */
+function clampText(text) {
+  if (!text) return '';
+  const s = text.toString();
+  if (s.length <= MAX_TEXT_LENGTH) return s;
+  return s.slice(0, MAX_TEXT_LENGTH) + '\n\n[Text truncated for length]';
+}
+
+async function handler(event) {
   // Handle CORS preflight
-  if (event.httpMethod === 'OPTIONS') {
+  if (event?.httpMethod === 'OPTIONS') {
     return buildResponse(204, {});
   }
 
-  if (event.httpMethod !== 'POST') {
-    return buildResponse(405, makeError('METHOD_NOT_ALLOWED', 'Only POST is allowed.'));
-  }
-
-  let body;
-  try {
-    body = JSON.parse(event.body || '{}');
-  } catch (err) {
-    return buildResponse(400, makeError('BAD_JSON', 'Request body must be valid JSON.'));
-  }
-
-  const {
-    mode,        // "simplify" | "summarize"
-    text,
-    requestId,
-  } = body || {};
-
-  const effectiveRequestId = requestId || makeRequestId();
-
-  if (typeof text !== 'string' || !text.trim()) {
-    return buildResponse(
-      400,
-      makeError('MISSING_TEXT', 'Request body must include non-empty "text" string.')
-    );
-  }
-
-  if (text.length > MAX_TEXT_LENGTH) {
-    return buildResponse(
-      400,
-      makeError('TEXT_TOO_LONG', `Text exceeds maximum length of ${MAX_TEXT_LENGTH} characters.`, {
-        maxLength: MAX_TEXT_LENGTH,
-        length: text.length,
-      })
-    );
-  }
-
-  if (mode !== 'simplify' && mode !== 'summarize') {
-    return buildResponse(
-      400,
-      makeError('BAD_MODE', 'Mode must be "simplify" or "summarize".')
-    );
-  }
+  let requestId;
+  let mode;
+  let text;
 
   try {
+    const body = parseBody(event);
+    requestId = body.requestId || 'server-generated-' + Date.now().toString(36);
+    mode = (body.mode || 'simplify').toLowerCase();
+    text = clampText(body.text || '');
+
+    if (!ALLOWED_MODES.has(mode)) {
+      throw makeError(
+        'BAD_REQUEST',
+        `Invalid mode "${mode}". Expected "simplify" or "summarize".`,
+        { mode }
+      );
+    }
+
+    if (!text || !text.trim()) {
+      throw makeError(
+        'BAD_REQUEST',
+        'Text is required and cannot be empty.',
+        {}
+      );
+    }
+
     let outputText;
+
     if (mode === 'simplify') {
-      outputText = await simplifyText(text, { requestId: effectiveRequestId });
-    } else {
-      outputText = await summarizeText(text, { requestId: effectiveRequestId });
+      outputText = await simplifyText(text, { requestId });
+    } else if (mode === 'summarize') {
+      outputText = await summarizeText(text, { requestId });
     }
 
     return buildResponse(200, {
       success: true,
-      requestId: effectiveRequestId,
+      requestId,
       mode,
       outputText,
       source: 'azure-openai-mini',
@@ -113,16 +126,24 @@ exports.handler = async (event) => {
   } catch (err) {
     console.error('Azure LLM call failed', err);
 
-    // If azureLlmClient threw a makeError object, reuse it; otherwise wrap.
-    if (err && err.error && err.success === false) {
-      return buildResponse(502, err); // already in { success:false, error:{...} } shape
-    }
+    const errorPayload = {
+      code: err.code || 'LAMBDA_LLM_ERROR',
+      message: err.message || 'Failed to call Azure LLM service.',
+      details: err.details,
+    };
 
-    return buildResponse(
-      502,
-      makeError('LAMBDA_LLM_ERROR', 'Failed to call Azure LLM service.', {
-        message: String(err && err.message || err),
-      })
-    );
+    // We still send back the original (possibly truncated) text as fallbackText
+    // so the frontend can choose to read it out even if the LLM failed.
+    return buildResponse(502, {
+      success: false,
+      requestId,
+      mode,
+      error: errorPayload,
+      fallbackText: text,
+    });
   }
+}
+
+module.exports = {
+  handler,
 };
