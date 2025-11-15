@@ -1,0 +1,34 @@
+{
+	"manifest_version": 3,
+	"name": "Accessibility Browser Extension",
+	"version": "1.0",
+	"description": "Makes websites more accessible with Text-to-Speech and (possibly) Translation.",
+	"host_permissions": [
+		"<all_urls>",
+		"https://5tp98l0di6.execute-api.us-east-1.amazonaws.com/prod/tts",
+		"https://5tp98l0di6.execute-api.us-east-1.amazonaws.com/prod/llm"
+	],
+	"permissions": [
+		"activeTab",
+		"storage"
+	],
+	"background": {
+		"service_worker": "background.js"
+	},
+	"content_scripts": [
+		{
+			"matches": [
+				"<all_urls>"
+			],
+			"js": [
+				"content.js"
+			]
+		}
+	],
+	"action": {
+		"default_popup": "popup.html",
+		"default_icon": {
+			"16": "icon16.png"
+		}
+	}
+}
