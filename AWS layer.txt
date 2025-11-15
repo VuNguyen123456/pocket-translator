@@ -1,0 +1,77 @@
+Overall Flow (Why This Stack Exists)
+    Goal: give the extension a simple POST /api/tts it can call without ever seeing Azure keys.
+    AWS layer (this repo) = secure proxy + validation: API Gateway handles HTTPS + CORS, Lambda runs src/handler.js, secrets stay in env vars.
+    Azure layer = AI engines (TTS/translation). Lambda either calls a custom Azure Function (when AZURE_FUNCTION_URL is set) or talks directly to Azure Cognitive Services using the Speech + Translator keys.
+    Env vars you must set on Lambda:
+        AZURE_FUNCTION_URL (optional, for mock/dev proxy)
+        AZURE_SHARED_SECRET (optional, only when using the Azure Function proxy)
+        AZURE_SPEECH_KEY / AZURE_SPEECH_REGION (required for direct Speech API calls)
+        AZURE_TRANSLATOR_KEY / AZURE_TRANSLATOR_REGION (optional; required only if translateTo/targetLanguage is used)
+
+Public API Contract (extension → AWS)
+    Endpoint: POST https://<api-id>.execute-api.<region>.amazonaws.com/prod/tts
+    Request JSON:
+        {
+          "text": "Hello world",
+          "language": "en-US" // optional, defaults en-US
+        }
+    Success response (status 200):
+        {
+          "success": true,
+          "requestId": "<echoed id>",
+          "audioBase64": "<BASE64_MP3_DATA>",
+          "audioContentType": "audio/mpeg",
+          "language": "en-US",
+          "voice": "en-US-JennyNeural",
+          "source": "azure-tts",
+          "latencyMs": 123
+        }
+    Error response (4xx/5xx):
+        {
+          "success": false,
+          "error": {
+            "code": "BAD_REQUEST" | "TEXT_TOO_LONG" | "AZURE_TTS_ERROR" | "AZURE_RATE_LIMIT" | "LAMBDA_ERROR",
+            "message": "Human readable detail",
+            "details": { ... optional extra context ... }
+          }
+        }
+
+Private Contract (AWS Lambda → Azure AI)
+    If AZURE_FUNCTION_URL is defined (e.g., mock server), Lambda sends JSON including requestId/text/language (+ optional voice/translate flags) with HMAC headers X-Azure-Ts/X-Azure-Sig.
+    Otherwise Lambda calls Azure Translator (if translateTo is provided) and Azure Speech directly using the Cognitive Services keys. The AWS layer still normalizes the response into the success/error shape documented above.
+
+File-by-File Purpose & Rationale
+    src/handler.js – Lambda logic.
+    Parses API Gateway events, handles CORS/OPTIONS, validates text length, sets defaults (language, format).
+    Builds a clean payload contract for Azure (text, voice, translateTo, simplify flags).
+    Calls callAzure, interprets success/rate-limit/error, and replies with the success/error JSON described above so the extension can just look for success === true and audioBase64.
+    Why: central place to enforce limits, prevent bad requests from hitting Azure, and guarantee consistent responses to the extension.
+    src/azureClient.js – Azure client wrapper.
+Supports two modes:
+        1) callAzureFunction: send the payload to a custom Azure Function with shared-secret headers (used by the mock server or if the Azure team supplies a proxy).
+        2) callCognitiveServices: (default path) invoke Azure Translator + Speech directly with AZURE_SPEECH_* / AZURE_TRANSLATOR_* keys. Handles translation, SSML generation, and returns audioBase64 so handler stays simple.
+Why: isolates all Azure-specific HTTP calls/keys so the handler can focus on validation + response formatting.
+    src/utils.js – shared helpers.
+makeError keeps every error payload identical; sign is used both here and by the mock server to verify the shared secret; isValidLanguage enforces a minimal format check before sending to Azure.
+Why: avoids duplicating logic and makes the handler cleaner to read.
+    src/mockAzure.js – local Azure Function emulator.
+Express app that pretends to be Azure: it trusts requests with the right secret, sends back a fake mp3 base64, and gives us predictable metadata.
+Why: lets the team develop/test Lambda logic without burning Azure calls or waiting on the real Function to be ready.
+    src/testLocalRequest.js – Lambda smoke test.
+Simulates API Gateway by crafting the event JSON, invokes handler directly, and writes out.mp3 whenever the response contains audio.
+Why: fast feedback loop; we can debug handler code entirely locally and keep an artifact (mp3) to prove the round-trip works.
+    
+    What You Can Rely On Right Now
+        Local workflow verified: mock server + test harness prove the JSON contracts and audio passthrough behave as expected.
+        Handler already enforces CORS headers and error structure, so once deployed behind API Gateway the extension can call it immediately.
+        Adding new features (e.g., translation) just means extending the payload and Azure response handling—contracts are already in place.
+
+
+
+The flow is:
+Extension → Lambda: handler.js receives the POST, checks it (text exists, length limits, language sanity).
+Contract creation: handler builds the payload Azure expects (text, language, voice, translateTo, format) and decides defaults.
+AWS → Azure:
+        If AZURE_FUNCTION_URL is set (dev/mock), azureClient.js signs the payload and posts to that URL.
+        Otherwise azureClient.js optionally calls Azure Translator (when translateTo/targetLanguage provided) and always calls Azure Speech (SSML + audio format negotiation) using the Cognitive Services keys.
+Result back to extension: handler interprets the Azure response and returns the documented JSON (audioBase64 + metadata or structured error) with CORS headers.
