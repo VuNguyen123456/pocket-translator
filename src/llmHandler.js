@@ -1,6 +1,20 @@
-// src/llmHandler.js
-// Lambda handler for the /llm endpoint.
-// This is the bridge between the browser extension and Azure OpenAI mini.
+/**
+ * Lambda handler for the /llm endpoint.
+ *
+ * This function is deployed as an AWS Lambda and exposed via API Gateway (POST /llm).
+ * The browser extension sends a JSON body:
+ *   { mode: "simplify" | "summarize", text: string, requestId: string }
+ *
+ * We call Azure OpenAI (deployment: gpt-4.1-mini-2) via azureLlmClient.js to:
+ *   - simplifyText(text)   when mode === "simplify"
+ *   - summarizeText(text)  when mode === "summarize"
+ *
+ * The response is normalized to:
+ *   { success, requestId, mode, outputText, source }
+ *
+ * This is the Azure LLM backend I implemented for PatriotHacks to power the
+ * simplify/summarize accessibility feature in our browser extension.
+ */
 
 const { makeError } = require('./utils');
 const { simplifyText, summarizeText } = require('./azureLlmClient');
