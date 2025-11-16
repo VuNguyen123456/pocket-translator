@@ -1,6 +1,6 @@
 
 
-let speed = 1.0;
+let speedPlay = 1.0;
 let lang = "";
 
 
@@ -33,7 +33,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     //ADA mode
     playbackDropdown.addEventListener("change", (e) => {
-        speed = e.target.value;
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            chrome.tabs.sendMessage(tabs[0].id, { action: "SET_PLAYBACK_SPEED", speed: e.target.value }, (res) => {
+                console.log("Playback speed applied:", res);
+                speedPlay = res.speed;
+            });
+        });
     });
 
     accessibilityBtn.addEventListener("click", () => {
@@ -43,7 +49,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     salesforceBtn.addEventListener("click", () => {
-        sendToActiveTab({ action: "TOGGLE_SALESFORCE" });
+        // sendToActiveTab({ action: "TOGGLE_SALESFORCE" });
+        // salesforceBtn.addEventListener("click", () => {
+        //     const textToExport = currentTranslatedText || currentOriginalText;
+        //     exportSalesforceNote({
+        //         pageTitle: document.title,
+        //         pageUrl: window.location.href,
+        //         text: textToExport
+        //     });
+        // });
     });
 
     highContrastBtn.addEventListener("click", () => {
@@ -136,7 +150,7 @@ document.getElementById("readBtn").addEventListener("click", () => {
                             const audio = new Audio(
                                 `data:${ttsResponse.audioContentType};base64,${ttsResponse.audioBase64}`
                             );
-                            audio.playbackRate = speed;
+                            audio.playbackRate = speedPlay;
                             audio.play();
 
                             spawnLanguageParticles();
@@ -192,4 +206,28 @@ const chars = [
         // Remove after animation ends
         setTimeout(() => el.remove(), 1000);
     }
+}
+
+function exportSalesforceNote({ pageTitle, pageUrl, text }) {
+    const payload = {
+        attributes: {
+        type: "Note",
+        referenceId: "Webpage_Accessibility_Note"
+        },
+        Title: `Accessibility note: ${pageTitle || pageUrl || "Unknown page"}`,
+        Body: text
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "salesforce-note.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 }

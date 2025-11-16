@@ -17,8 +17,6 @@ const modeCSS = {
         animation: none !important;
         transition: none !important;
         scroll-behavior: auto !important;
-        outline: 2px solid #1a73e8 !important;
-        outline-offset: 1px !important;
     }
 
     body {
@@ -63,23 +61,6 @@ const modeCSS = {
             border-color: #fff !important;
         }
     `,
-    adaMode: `
-        body 
-        {
-        font-size: 22px !important;
-        line-height: 1.8 !important;
-        }
-        * { outline: 1px solid #000 !important; }
-    `,
-    salesforce: `
-        body 
-        { 
-        background: #f4f6f9 !important; 
-        color: #16325c !important;
-        font-family: 'Salesforce Sans', sans-serif !important; 
-        }
-    `
-
 };
 
 // Helper to toggle styles
@@ -155,25 +136,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         case "SET_PLAYBACK_SPEED":
             const speed = parseFloat(msg.speed) || 1;
-            // Example: adjust font size proportionally to speed
-            toggleModeStyle("adaMode", true); // ensure adaMode styles are applied
-            const styleTag = styleTags["adaMode"];
-            if (styleTag) {
-                styleTag.textContent = `
-                    body { 
-                    font-size: ${20 * speed}px !important;
-                    line-height: ${1.8 * speed} !important; 
-                    }
-                    * { outline: 1px solid #000 !important; }
-                `;
-            }
             sendResponse({ success: true, speed });
             return true;
 
         case "TOGGLE_SALESFORCE_MODE":
-            salesforceModeEnabled = !salesforceModeEnabled;
-            toggleModeStyle("salesforce", salesforceModeEnabled);
-            sendResponse({ enabled: salesforceModeEnabled });
+            document.getElementById("salesforceBtn").addEventListener("click", () => {
+                const textToExport = currentTranslatedText || currentOriginalText;
+                exportSalesforceNote({
+                    pageTitle: document.title,
+                    pageUrl: window.location.href,
+                    text: textToExport
+                });
+            });
+
             return true;
 
         case "SET_LANGUAGE":
