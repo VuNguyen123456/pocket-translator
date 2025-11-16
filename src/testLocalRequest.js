@@ -1,9 +1,10 @@
+// Powered by Chatgpt
 // src/testLocalRequest.js
 const fs = require('fs');
 const handler = require('./handler').handler;
 
 async function runTest() {
-  // Mimic the API Gateway event body we expect in production.
+  // Mimic the API Gateway event body 
   const event = {
     httpMethod: 'POST',
     body: JSON.stringify({
