@@ -1,19 +1,19 @@
 
 
 let speed = 1.0;
+let lang = "";
 
 
 document.addEventListener("DOMContentLoaded", () => {
 
     const readBtn = document.getElementById("readBtn");
-    const translateBtn = document.getElementById("translateBtn");
-    const accessibilityBtn = document.getElementById("playback");
+    const accessibilityBtn = document.getElementById("accessibilityModeBtn");
     const languageSelect = document.getElementById("language-select");
     const salesforceBtn = document.getElementById("salesforceBtn");
     const highContrastBtn = document.getElementById("highContrastBtn");
     const playbackDropdown = document.getElementById("playback");
 
-
+    
     function sendToActiveTab(message, callback) {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (!tabs[0]?.id) return;
@@ -30,27 +30,15 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    translateBtn.addEventListener("click", () => {
-        const lang = languageSelect.value;
-        chrome.runtime.sendMessage({ action: "TRANSLATE_READ", targetLang: lang }, response => {
-            if (!response?.success) return console.warn("Translation failed:", response?.error);
-            console.log("Translated text:", response.text);
-
-            if (response.audioBase64) {
-                //const audio = new Audio();
-                audio.play();
-            }
-        });
-    });
 
     //ADA mode
-    /*playbackDropdown.addEventListener("change", (e) => {
+    playbackDropdown.addEventListener("change", (e) => {
         speed = e.target.value;
-
     });
 
     accessibilityBtn.addEventListener("click", () => {
         sendToActiveTab({ action: "TOGGLE_ACCESSIBILITY" });
+        accessibilityBtn.classList.toggle("active");  // only this button stays on/off
     });
 
 
@@ -60,16 +48,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     highContrastBtn.addEventListener("click", () => {
         sendToActiveTab({ action: "TOGGLE_HIGH_CONTRAST" });
+        highContrastBtn.classList.toggle("active");  // only this button stays on/off
     });
 
     languageSelect.addEventListener("change", (e) => {
-        sendToActiveTab({ action: "SET_LANGUAGE", language: e.target.value });
-    });*/
+        lang = e.target.value;
+        sendToActiveTab({ action: "SET_LANGUAGE", language: lang });
+        spawnLanguageParticles();
+    });
 
 });
-
-
-
 
 // Function to get full page text and process it
 function processFullPageText() {
@@ -110,11 +98,6 @@ document.getElementById("aiSummarizer").addEventListener("click", () => {
 });
 
 
-
-
-
-
-
 document.getElementById("readBtn").addEventListener("click", () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.tabs.sendMessage(
@@ -139,7 +122,8 @@ document.getElementById("readBtn").addEventListener("click", () => {
                     {
                         type: "TTS_REQUEST",
                         text: selectedText,
-                        language: "en"
+                        sourceLanguage: "",
+                        targetLanguage:lang
                     },
                     (ttsResponse) => {
                         if (chrome.runtime.lastError) {
@@ -154,6 +138,8 @@ document.getElementById("readBtn").addEventListener("click", () => {
                             );
                             audio.playbackRate = speed;
                             audio.play();
+
+                            spawnLanguageParticles();
                         } else {
                             console.error("Failed to get TTS audio:", ttsResponse?.error);
                         }
@@ -164,3 +150,46 @@ document.getElementById("readBtn").addEventListener("click", () => {
     });
 });
 
+function spawnLanguageParticles() {
+const chars = [
+        "A","B","C","あ","字","語","ब","ك","Ω","Й","ñ","á","é","ü","ß",
+        "한","글","ض","ش","क","ह","你","我","한","語","є","δ"
+    ];
+
+    const dropdown = document.getElementById("language-select");
+    if (!dropdown) return;
+
+    const rect = dropdown.getBoundingClientRect();
+
+    // Popup root
+    const popup = document.body;
+
+    for (let i = 0; i < 16; i++) {
+        const el = document.createElement("div");
+        el.className = "language-particle";
+
+        el.textContent = chars[Math.floor(Math.random() * chars.length)];
+
+        // Position relative to popup
+        const offsetX = rect.left + rect.width / 2 - popup.offsetLeft;
+        const offsetY = rect.top + rect.height / 2 - popup.offsetTop;
+
+        el.style.left = offsetX + "px";
+        el.style.top = offsetY + "px";
+
+        // Random direction burst (strong outward)
+        const angle = Math.random() * Math.PI * 2; // 0–360° rad
+        const distance = 40 + Math.random() * 60; // px distance
+
+        el.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+        el.style.setProperty("--dy", `${Math.sin(angle) * distance}px`);
+
+        // Bright confetti colors
+        el.style.color = `hsl(${Math.random() * 360}, 85%, 60%)`;
+
+        popup.appendChild(el);
+
+        // Remove after animation ends
+        setTimeout(() => el.remove(), 1000);
+    }
+}
