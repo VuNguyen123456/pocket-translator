@@ -15,64 +15,172 @@ const AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-0
 // Safety: limit how much text we send in one go (characters, not tokens).
 const LLM_MAX_INPUT_CHARS = Number(process.env.LLM_MAX_INPUT_CHARS || 8000);
 
+
+function chunkText(text, maxChars = 4000) {
+  const chunks = [];
+  let current = "";
+
+  const paragraphs = text.split(/\n\s*\n/); // split on blank lines
+
+  for (const p of paragraphs) {
+    if ((current + "\n\n" + p).length > maxChars) {
+      if (current) chunks.push(current);
+      current = p;
+    } else {
+      current = current ? current + "\n\n" + p : p;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+async function callAzureLLMChunked({ text, mode, lang }) {
+  const chunks = chunkText(text);
+
+  // For simple/summarize/accessibility you can:
+  if (chunks.length === 1) {
+    return callAzureLLM({ text, mode, lang });
+  }
+
+  // 1) Summarize/simplify each chunk
+  const partials = [];
+  for (const c of chunks) {
+    const res = await callAzureLLM({ text: c, mode, lang });
+    partials.push(res.raw); // or res.json.simple_text, etc.
+  }
+
+  // 2) Combine those into a final summary / rewrite
+  const combinedText = partials.join("\n\n");
+
+  return callAzureLLM({
+    text: combinedText,
+    mode,
+    lang
+  });
+}
 /**
  * Internal helper to call Azure OpenAI chat completions.
  * You can tweak model options here (temperature, max_tokens, etc.).
  */
-async function callAzureChat(messages, options = {}) {
+async function callAzureChat(
+  messages,
+  {
+    temperature = 0.2,
+    maxTokens = 800,
+    requestId = null,
+    mode = null,
+    textLength = null,
+    chunkCount = null,
+  } = {}
+) {
   if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_API_KEY || !AZURE_OPENAI_DEPLOYMENT) {
     throw makeError(
-      'CONFIG_ERROR',
-      'Azure OpenAI environment variables are not fully configured.',
-      {
-        endpoint: !!AZURE_OPENAI_ENDPOINT,
-        apiKey: !!AZURE_OPENAI_API_KEY,
-        deployment: !!AZURE_OPENAI_DEPLOYMENT,
-      }
+      'AzureOpenAIConfigError',
+      'Azure OpenAI environment variables are not configured.'
     );
   }
 
-  const url = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`;
+  const url =
+    `${AZURE_OPENAI_ENDPOINT}` +
+    `/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}` +
+    `/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`;
 
   const body = {
     messages,
-    temperature: options.temperature ?? 0.3,
-    max_tokens: options.maxTokens ?? 512,
-    top_p: options.topP ?? 0.9,
-    n: 1,
+    temperature,
+    max_tokens: maxTokens,
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'api-key': AZURE_OPENAI_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const started = Date.now();
+  let res;
+  let data;
 
-  const json = await res.json().catch(() => null);
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': AZURE_OPENAI_API_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await res.text();
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // If Azure sent non-JSON, log raw text for debugging
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'azure_llm_response_parse_error',
+          requestId,
+          mode,
+          status: res.status,
+          body: text.slice(0, 500),
+        })
+      );
+      throw makeError('AzureOpenAIParseError', 'Failed to parse Azure OpenAI response as JSON.');
+    }
+  } catch (err) {
+    const latencyMs = Date.now() - started;
+
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'azure_llm_network_error',
+        requestId,
+        mode,
+        text_length: textLength,
+        chunk_count: chunkCount,
+        latency_ms: latencyMs,
+        message: err && err.message ? err.message : String(err),
+      })
+    );
+
+    throw makeError('AzureOpenAINetworkError', 'Error calling Azure OpenAI.', { cause: err });
+  }
+
+  const latencyMs = Date.now() - started;
+
+  // 🔹 Structured success log for CloudWatch / debugging
+  console.log(
+    JSON.stringify({
+      level: 'info',
+      event: 'azure_llm_call',
+      requestId,
+      mode,
+      text_length: textLength,
+      chunk_count: chunkCount,
+      latency_ms: latencyMs,
+      status: res.status,
+    })
+  );
 
   if (!res.ok) {
-    const msg =
-      json?.error?.message ||
-      json?.message ||
-      `Azure OpenAI returned HTTP ${res.status}`;
-    throw makeError('AZURE_LLM_ERROR', msg, {
-      status: res.status,
-      body: json,
-    });
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'azure_llm_http_error',
+        requestId,
+        mode,
+        status: res.status,
+        error: data && data.error ? data.error : null,
+      })
+    );
+    throw makeError(
+      'AzureOpenAIHttpError',
+      `Azure OpenAI returned HTTP ${res.status}`,
+      { azureError: data && data.error ? data.error : undefined }
+    );
   }
 
-  const choice = json?.choices?.[0];
-  const text = choice?.message?.content;
-  if (!text) {
-    throw makeError('AZURE_LLM_ERROR', 'Azure OpenAI response missing content.', {
-      body: json,
-    });
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content || typeof content !== 'string') {
+    throw makeError('AzureOpenAIContentError', 'No content in Azure OpenAI response.');
   }
 
-  return text.trim();
+  return content.trim();
 }
 
 /**
@@ -94,30 +202,69 @@ function clampText(text) {
  */
 async function simplifyText(text, { requestId } = {}) {
   const input = clampText(text);
+  const chunks = chunkText(input, 4000);
 
+  // 🔹 UPDATED: accessibility-optimized system prompt
   const systemPrompt = [
     'You are an accessibility assistant.',
-    'Simplify the user\'s text so it is easy to understand for a high-school reader.',
+    'Rewrite the user\'s text so it is easy to understand for a high-school reader.',
     'Use short, clear sentences and plain vocabulary.',
-    'Preserve the original meaning and key details.',
-    'Avoid adding new opinions or facts that are not in the text.',
+    'Preserve the original meaning and important details.',
+    'Avoid adding new opinions or facts that are not in the text.'
   ].join(' ');
 
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: `Simplify the following text:\n\n${input}`,
-    },
-  ];
+  const mode = 'simplify';
 
-  const content = await callAzureChat(messages, {
-    temperature: 0.25,
-    maxTokens: 800,
-  });
+  // Single-chunk path (short pages)
+  if (chunks.length === 1) {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Simplify the following text:\n\n${input}`,
+      },
+    ];
 
-  return content;
+    const content = await callAzureChat(messages, {
+      temperature: 0.25,
+      maxTokens: 800,
+      requestId,
+      mode,
+      textLength: input.length,
+      chunkCount: 1,
+    });
+
+    return content;
+  }
+
+  // Multi-chunk path (long pages)
+  const simplifiedChunks = [];
+
+  for (const c of chunks) {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Simplify the following text:\n\n${c}`,
+      },
+    ];
+
+    const part = await callAzureChat(messages, {
+      temperature: 0.25,
+      maxTokens: 800,
+      requestId,
+      mode,
+      textLength: c.length,
+      chunkCount: chunks.length,
+    });
+
+    simplifiedChunks.push(part);
+  }
+
+  return simplifiedChunks.join('\n\n');
 }
+
+
 
 /**
  * Summarize text into concise bullet points:
@@ -127,29 +274,88 @@ async function simplifyText(text, { requestId } = {}) {
  */
 async function summarizeText(text, { requestId } = {}) {
   const input = clampText(text);
+  const chunks = chunkText(input, 4000);
 
+  // 🔹 UPDATED: accessibility-aware summarization prompt
   const systemPrompt = [
     'You are an accessibility assistant.',
     'Summarize the user\'s text into a short list of bullet points.',
-    'Use simple language and focus on the most important ideas.',
-    'Do not include more than 7 bullets.',
+    'Use simple, clear language and focus on the most important ideas.',
+    'Try to give 3–7 bullets total.',
+    'Avoid adding new information that is not in the text.'
   ].join(' ');
 
-  const messages = [
+  const mode = 'summarize';
+
+  // Single-chunk path
+  if (chunks.length === 1) {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Summarize the following text into bullet points:\n\n${input}`,
+      },
+    ];
+
+    const content = await callAzureChat(messages, {
+      temperature: 0.3,
+      maxTokens: 600,
+      requestId,
+      mode,
+      textLength: input.length,
+      chunkCount: 1,
+    });
+
+    return content;
+  }
+
+  // Multi-chunk path
+  const perChunkBullets = [];
+
+  for (const c of chunks) {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Summarize the following section into bullet points:\n\n${c}`,
+      },
+    ];
+
+    const bullets = await callAzureChat(messages, {
+      temperature: 0.3,
+      maxTokens: 600,
+      requestId,
+      mode,
+      textLength: c.length,
+      chunkCount: chunks.length,
+    });
+
+    perChunkBullets.push(bullets);
+  }
+
+  // Combine all bullets into a final concise list
+  const combinedBullets = perChunkBullets.join('\n');
+
+  const finalMessages = [
     { role: 'system', content: systemPrompt },
     {
       role: 'user',
-      content: `Summarize the following text into bullet points:\n\n${input}`,
+      content: `Here are bullet-point summaries from different sections of a long text:\n\n${combinedBullets}\n\nPlease combine these into a single list of 3–7 bullets, removing duplicates and keeping only the most important information.`,
     },
   ];
 
-  const content = await callAzureChat(messages, {
+  const finalSummary = await callAzureChat(finalMessages, {
     temperature: 0.3,
     maxTokens: 600,
+    requestId,
+    mode,
+    textLength: input.length,
+    chunkCount: chunks.length,
   });
 
-  return content;
+  return finalSummary;
 }
+
 
 module.exports = {
   simplifyText,
