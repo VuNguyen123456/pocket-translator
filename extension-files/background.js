@@ -28,6 +28,7 @@ async function callLlm(mode, text) {
 	const data = await res.json();
 
 	if (data.success) {
+		console.log("REWRITTEN-TEXT SUCCESSFULLY RECIEVED");
 		return {
 			rewrittenText: data.outputText
 		}; // The simplified or summarized text
@@ -37,6 +38,8 @@ async function callLlm(mode, text) {
 	// Handle fallback
 	if (data.fallbackText) {
 		//return data.fallbackText;
+
+		console.log("FALLBACK TEXT USED");
 		return {
 			rewrittenText: data.fallbackText
 		};
