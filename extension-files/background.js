@@ -13,19 +13,33 @@ async function callLlm(mode, text) {
 		body: JSON.stringify({
 			mode,
 			text,
-			requestId: crypto.randomUUID() || Date.now().toString()
+			requestId: crypto.randomUUID() || Date.now().toString(),
+			"tts": {
+				"enabled": true,            // set to false or omit for text-only
+				"language": "en-US",
+				"format": "audio/mp3",
+				"voice": "default"
+			}
+
+
 		})
 	});
 
 	const data = await res.json();
 
 	if (data.success) {
-		return data.outputText; // The simplified or summarized text
+		return {
+			rewrittenText: data.outputText
+		}; // The simplified or summarized text
+		//return data.outputText;
 	}
 
 	// Handle fallback
 	if (data.fallbackText) {
-		return data.fallbackText;
+		//return data.fallbackText;
+		return {
+			rewrittenText: data.fallbackText
+		};
 	}
 
 	throw new Error(data.error?.message || "LLM call failed");
@@ -41,7 +55,6 @@ async function requestTTS(message) {
 
 	const chosenUrl = "https://5tp98l0di6.execute-api.us-east-1.amazonaws.com/prod/tts";
 
-	console.log(message.targetLanguage);
 	// Try to call the cloud TTS endpoint
 	const res = await fetch(chosenUrl, {
 		method: 'POST',
@@ -68,11 +81,24 @@ async function requestTTS(message) {
 
 async function handleProcessText(message, sendResponse) {
 	try {
-		const rewrittenText = await callLlm("summarize", message.text);
-		sendResponse({ rewrittenText });
+		const response = await callLlm("summarize", message.text);
+
+
+
+		const msg = {
+			text: response.rewrittenText,
+			sourceLanguage: "",
+			targetLanguage: "en-US"
+		};
+		const data = await requestTTS(msg);
+		sendResponse({
+			rewrittenText: response.rewrittenText,
+			audioBase64: data.audioBase64,
+			audioContentType: data.audioContentType
+		});
 	} catch (err) {
 		console.error("LLM error:", err);
-		sendResponse({ rewrittenText: "Error processing text" });
+		sendResponse({ text: "Error processing text" });
 	}
 }
 
@@ -97,18 +123,7 @@ async function handleTTS(message, sendResponse) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	if (message.type == 'TTS_REQUEST') {
 
-		/*requestTTS(message).then(data => {
-			// Send the response after the async request is complete
-			sendResponse({
-				audioBase64: data.audioBase64,
-				audioContentType: data.audioContentType
-			});
-		}).catch((error) => {
-			console.error("Error handling TTS request:", error);
-			
-		});
-		// Return true to indicate an async response
-		return true;*/
+
 		handleTTS(message, sendResponse);
 		return true;
 	}
