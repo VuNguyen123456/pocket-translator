@@ -74,6 +74,8 @@ async function callCognitiveServices(payload) {
   console.log('Azure config check passed:', { region: SPEECH_REGION, keyPrefix: SPEECH_KEY?.substring(0, 8) + '...' });
 
   const started = Date.now();
+  // The extension/Lambda can send either `translateTo` or `targetLanguage`.
+  // We normalize those into a single `translateTarget` field here.
   const translateTarget = payload.translateTo || payload.targetLanguage || null;
 
   try {
@@ -115,6 +117,7 @@ async function callCognitiveServices(payload) {
 
 async function maybeTranslate(text, language, targetLanguage) {
   if (!targetLanguage || targetLanguage === '' || targetLanguage === 'none') {
+    // No translation requested — return original text/language.
     return { text, language };
   }
   if (!TRANSLATOR_KEY || !TRANSLATOR_REGION) {

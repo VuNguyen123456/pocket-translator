@@ -25,11 +25,34 @@ function buildResponse(statusCode, body) {
 }
 
 /**
- * Lambda entry point. Receives the API Gateway event, validates the body,
- * forwards a cleaned contract to Azure, and sends the normalized response
- * (audioBase64 + metadata) back to the browser extension.
+ * Lambda entry point for the TTS API.
+ *
+ * Flow (Extension → API Gateway → Lambda → Azure):
+ *   1. API Gateway forwards the HTTP request as an `event` object.
+ *   2. We parse + validate the JSON body sent by the browser extension.
+ *   3. We build a clean `azurePayload` and call `callAzure(...)`.
+ *   4. We normalize Azure's response into a small JSON contract that the
+ *      extension understands: { success, audioBase64, audioContentType, ... }.
+ *
+ * This handler intentionally stays thin: it does validation, logging and
+ * error mapping, while the heavy lifting lives in `azureClient.js`.
  */
 exports.handler = async function(event) {
+  const startedAt = Date.now();
+
+  // Lightweight health check so teammates can verify the Lambda is live
+  // without invoking Azure or spending extra quota.
+  // Note: depending on how API Gateway is configured, `path`/`resource`
+  // may or may not be populated for GET /health. For this hackathon
+  // we treat any GET request with an empty body as a health probe.
+  if (event.httpMethod === 'GET' && (!event.body || event.body === '')) {
+    return buildResponse(200, {
+      status: 'ok',
+      source: 'aws-lambda-tts',
+      ts: new Date().toISOString(),
+    });
+  }
+
   // 1) Browser extensions must issue CORS preflight requests. Respond early.
   if (event.httpMethod === 'OPTIONS') {
     return buildResponse(204, {});
@@ -82,6 +105,16 @@ exports.handler = async function(event) {
   };
 
   try {
+    console.log('TTS request received', {
+      path: event.path,
+      requestId: azurePayload.requestId,
+      textLength: text.length,
+      language: lang,
+      targetLanguage: azurePayload.translateTo,
+      format: outFormat,
+      hasAzureUrl: !!AZURE_URL,
+    });
+
     // callAzure wraps fetch + our shared-secret signature so Azure knows
     // this came from AWS and not an attacker.
     const resp = await callAzure(AZURE_URL, AZURE_SECRET, azurePayload);
@@ -93,6 +126,7 @@ exports.handler = async function(event) {
       if (!audioBase64) {
         return buildResponse(502, makeError('AZURE_TTS_ERROR', 'Azure response missing audio payload.'));
       }
+      const totalLatency = Date.now() - startedAt;
       // Success: return the minimal fields the extension needs to play audio.
       return buildResponse(200, {
         success: true,
@@ -102,7 +136,8 @@ exports.handler = async function(event) {
         language: azureBody.language || lang,
         voice: azureBody.voice || azureBody.meta?.voice || azurePayload.voice,
         source: 'azure-tts',
-        latencyMs: azureBody.latencyMs ?? azureBody.meta?.latencyMs ?? null
+        // latencyMs from Azure (if present) plus the outer Lambda timing for observability.
+        latencyMs: azureBody.latencyMs ?? azureBody.meta?.latencyMs ?? totalLatency
       });
     } else if (resp.statusCode === 429) {
       const retryAfter = resp.bodyJson?.retryAfterS ?? 5;
@@ -118,10 +153,23 @@ exports.handler = async function(event) {
         resp.bodyJson?.message ||
         azureBody.message ||
         `Azure returned ${resp.statusCode}`;
-      return buildResponse(502, makeError(code, msg, { azureStatus: resp.statusCode }));
+      console.warn('Azure TTS returned non-200', {
+        requestId: azurePayload.requestId,
+        statusCode: resp.statusCode,
+        code,
+        msg,
+      });
+      return buildResponse(502, makeError(code, msg, {
+        azureStatus: resp.statusCode,
+      }));
     }
   } catch (err) {
-    console.error('Azure call failed', err);
-    return buildResponse(502, makeError('LAMBDA_ERROR', 'Failed to call Azure service.', { err: String(err) }));
+    console.error('Azure call failed', {
+      requestId: azurePayload.requestId,
+      err: String(err),
+    });
+    return buildResponse(502, makeError('LAMBDA_ERROR', 'Failed to call Azure service.', {
+      err: String(err),
+    }));
   }
 };

@@ -17,7 +17,10 @@ const LLM_MAX_INPUT_CHARS = Number(process.env.LLM_MAX_INPUT_CHARS || 8000);
 
 /**
  * Internal helper to call Azure OpenAI chat completions.
- * You can tweak model options here (temperature, max_tokens, etc.).
+ *
+ * This is the only place that knows about the Azure OpenAI HTTP API.
+ * Everything else (prompts, simplify/summarize helpers) call this function
+ * so if you need to tweak model options or logging, do it here.
  */
 async function callAzureChat(messages, options = {}) {
   if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_API_KEY || !AZURE_OPENAI_DEPLOYMENT) {
@@ -42,6 +45,7 @@ async function callAzureChat(messages, options = {}) {
     n: 1,
   };
 
+  const callStartedAt = Date.now();
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -53,15 +57,30 @@ async function callAzureChat(messages, options = {}) {
 
   const json = await res.json().catch(() => null);
 
+  const latencyMs = Date.now() - callStartedAt;
+  console.log('Azure OpenAI chat call finished', {
+    url,
+    status: res.status,
+    ok: res.ok,
+    latencyMs,
+  });
+
   if (!res.ok) {
-    const msg =
+    // Detect Azure rate‑limit responses and surface a dedicated code so the
+    // caller (Lambda handler / extension) can show a friendly "please retry".
+    const isRateLimit = res.status === 429 || json?.error?.code === 'RateLimitReached';
+    const baseMsg =
       json?.error?.message ||
       json?.message ||
       `Azure OpenAI returned HTTP ${res.status}`;
-    throw makeError('AZURE_LLM_ERROR', msg, {
+
+    const errCode = isRateLimit ? 'AZURE_LLM_RATE_LIMIT' : 'AZURE_LLM_ERROR';
+    const details = {
       status: res.status,
       body: json,
-    });
+      latencyMs,
+    };
+    throw makeError(errCode, baseMsg, details);
   }
 
   const choice = json?.choices?.[0];
