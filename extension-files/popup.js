@@ -1,36 +1,7 @@
-/*document.getElementId("readBtn").addEventListener("click", () => {
-    chrome.runtime.sendMessage({action: "READ_SELECTED"});
-});*/
+
 
 let speed = 1.0;
 
-/*
-document.getElementById("readBtn").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ action: "READ_SELECTED" }, (response) => {
-
-        selectedText = response.text;
-        if (selectedText) {
-
-            chrome.runtime.sendMessage({
-                type: "TTS_REQUEST",
-                text: selectedText,
-                language: "en"
-            }, (response) => {
-                if (response.audioBase64) {
-
-                    //SETUP
-                    console.log("YAY");
-
-
-                } else {
-                    console.error("Failed to get TTS audio:", response.error);
-                }
-            });
-        } else {
-            console.warn("No text selected.");
-        }
-    });
-});*/
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -73,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     //ADA mode
-    playbackDropdown.addEventListener("change", (e) => {
+    /*playbackDropdown.addEventListener("change", (e) => {
         speed = e.target.value;
 
     });
@@ -93,9 +64,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
     languageSelect.addEventListener("change", (e) => {
         sendToActiveTab({ action: "SET_LANGUAGE", language: e.target.value });
-    });
+    });*/
 
 });
+
+
+
+
+// Function to get full page text and process it
+function processFullPageText() {
+    // Step 1: Get the entire text from the body of the page
+    const pageText = document.body.innerText;
+
+    if (pageText) {
+        // Step 2: Send the full page text to the background for LLM processing
+        chrome.runtime.sendMessage(
+            { type: "PROCESS_TEXT", text: pageText }, // Send the full page text to background.js
+            (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error in background response:", chrome.runtime.lastError);
+                    return;
+                }
+
+                if (response && response.rewrittenText) {
+                    console.log("Rewritten text:", response.rewrittenText);
+                    // Now you can do something with the rewritten text (e.g., pass it to TTS)
+                    chrome.runtime.sendMessage({
+                        type: "TTS_REQUEST",
+                        text: response.rewrittenText,
+                        language: "en"
+                    });
+                } else {
+                    console.error("No rewritten text returned from background.");
+                }
+            }
+        );
+    } else {
+        console.warn("No text found on the page.");
+    }
+}
+
+// Add event listener for button click to process the full page text
+document.getElementById("aiSummarizer").addEventListener("click", () => {
+    processFullPageText(); // Call function to process the entire page text
+});
+
 
 
 
@@ -151,18 +164,3 @@ document.getElementById("readBtn").addEventListener("click", () => {
     });
 });
 
-
-
-
-document.getElementById("translateBtn").addEventListener("click", () => {
-    const selectedLang = document.getElementById("language-select").value;
-    chrome.runtime.sendMessage({ action: "TRANSLATE_READ" });
-});
-
-document.getElementById("accessibilityModeBtn").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ action: "TOGGLE_ACCESSIBILITY_MODE" });
-});
-
-/*document.getElementById("language-select").addEventListener("change", (e) => {
-    chrome.runtime.sendMessage({ action: "SET_LANGUAGE" });
-});*/
