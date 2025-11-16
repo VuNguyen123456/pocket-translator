@@ -144,18 +144,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             sendResponse({ success: true, speed });
             return true;
 
-        case "TOGGLE_SALESFORCE_MODE":
-            document.getElementById("salesforceBtn").addEventListener("click", () => {
-                const textToExport = currentTranslatedText || currentOriginalText;
-                exportSalesforceNote({
-                    pageTitle: document.title,
-                    pageUrl: window.location.href,
-                    text: textToExport
-                });
-            });
-
-            return true;
-
         case "SET_LANGUAGE":
             if (msg.language) {
                 document.documentElement.setAttribute("lang", msg.language);
