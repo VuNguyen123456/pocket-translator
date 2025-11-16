@@ -153,7 +153,7 @@ document.getElementById("readBtn").addEventListener("click", () => {
                             audio.playbackRate = speedPlay;
                             audio.play();
 
-                            spawnLanguageParticles();
+                            //spawnLanguageParticles();
                         } else {
                             console.error("Failed to get TTS audio:", ttsResponse?.error);
                         }
@@ -178,7 +178,7 @@ const chars = [
     // Popup root
     const popup = document.body;
 
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 30; i++) {
         const el = document.createElement("div");
         el.className = "language-particle";
 
@@ -207,6 +207,7 @@ const chars = [
         setTimeout(() => el.remove(), 1000);
     }
 }
+
 
 function exportSalesforceNote({ pageTitle, pageUrl, text }) {
     const payload = {

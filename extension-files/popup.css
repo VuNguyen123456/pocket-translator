@@ -82,24 +82,20 @@ select {
 .language-particle {
     position: absolute;
     font-size: 18px;
-    opacity: 0;
     pointer-events: none;
-    z-index: 9999;
-
-    animation: confettiBurst 0.9s ease-out forwards;
+    opacity: 1;
+    transform: translate(0, 0);
+    animation: burstFade 0.9s ease-out forwards;
 }
 
-@keyframes confettiBurst {
+@keyframes burstFade {
     0% {
         opacity: 1;
-        transform: translate(0, 0) rotate(0deg) scale(1);
-    }
-    70% {
-        opacity: 1;
-        transform: translate(var(--dx), var(--dy)) rotate(200deg) scale(1.1);
+        transform: translate(0, 0);
     }
     100% {
         opacity: 0;
-        transform: translate(var(--dx), var(--dy)) rotate(360deg) scale(0.6);
+        transform: translate(var(--dx), var(--dy));
     }
 }
+
