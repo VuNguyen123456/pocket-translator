@@ -1,6 +1,6 @@
+// Powered by Chatgpt
 // src/azureLlmClient.js
 // Azure OpenAI "mini" client for simplify/summarize features.
-// This is intended to be YOUR module: you own the prompts, options, and error handling.
 
 // Lazy-load node-fetch so this works in Lambda + local dev (CommonJS).
 const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
@@ -9,7 +9,7 @@ const { makeError } = require('./utils');
 // These env vars are injected in Lambda so no secrets live in code.
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;   // e.g. "https://my-resource.openai.azure.com"
 const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
-const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT; // e.g. "gpt-4o-mini" or your deployment name
+const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT; 
 const AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
 
 // Safety: limit how much text we send in one go (characters, not tokens).
@@ -40,7 +40,7 @@ function chunkText(text, maxChars = 4000) {
 async function callAzureLLMChunked({ text, mode, lang }) {
   const chunks = chunkText(text);
 
-  // For simple/summarize/accessibility you can:
+  // For simple/summarize/accessibility:
   if (chunks.length === 1) {
     return callAzureLLM({ text, mode, lang });
   }
@@ -63,7 +63,6 @@ async function callAzureLLMChunked({ text, mode, lang }) {
 }
 /**
  * Internal helper to call Azure OpenAI chat completions.
- * You can tweak model options here (temperature, max_tokens, etc.).
  */
 async function callAzureChat(
   messages,
@@ -216,8 +215,6 @@ async function callAzureChat(
           message: err && err.message ? err.message : String(err),
         })
       );
-
-      // For network-type errors, you *could* also retry; up to you.
       // Here we only retry on 429 above; for other errors we break.
       break;
     }
@@ -232,7 +229,6 @@ async function callAzureChat(
 
 /**
  * Clamp text to a maximum length so we don't blow past token limits.
- * Simple but good enough for hackathon scale.
  */
 function clampText(text) {
   if (!text) return '';
@@ -242,16 +238,14 @@ function clampText(text) {
 }
 
 /**
- * Simplify text for accessibility:
- * - Aim for ~high school reading level
- * - Short sentences, clear vocabulary
- * - Preserve core meaning
+ * Simplify text for accessibility.
+ * Not yet used.
  */
 async function simplifyText(text, { requestId } = {}) {
   const input = clampText(text);
   const chunks = chunkText(input, 4000);
 
-  // 🔹 UPDATED: accessibility-optimized system prompt
+  // accessibility-optimized system prompt
   const systemPrompt = [
     'You are an accessibility assistant.',
     'Rewrite the user\'s text so it is easy to understand for a high-school reader.',
