@@ -47,17 +47,20 @@ document.addEventListener("DOMContentLoaded", () => {
         accessibilityBtn.classList.toggle("active");  // only this button stays on/off
     });
 
-
     salesforceBtn.addEventListener("click", () => {
-        // sendToActiveTab({ action: "TOGGLE_SALESFORCE" });
-        // salesforceBtn.addEventListener("click", () => {
-        //     const textToExport = currentTranslatedText || currentOriginalText;
-        //     exportSalesforceNote({
-        //         pageTitle: document.title,
-        //         pageUrl: window.location.href,
-        //         text: textToExport
-        //     });
-        // });
+        sendToActiveTab({ action: "READ_SELECTED" }, (response) => {
+            const selectedText = response?.text?.trim() || "";
+    
+            if (!selectedText) {
+            alert("No text selected to export.");
+            return;
+            }
+            exportSalesforceNote({
+                pageTitle: document.title,
+                pageUrl: window.location.href,
+                text: selectedText
+            });
+        });
     });
 
     highContrastBtn.addEventListener("click", () => {
