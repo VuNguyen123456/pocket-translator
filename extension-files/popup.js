@@ -49,10 +49,10 @@ document.addEventListener("DOMContentLoaded", () => {
     salesforceBtn.addEventListener("click", () => {
         sendToActiveTab({ action: "READ_SELECTED" }, (response) => {
             const selectedText = response?.text?.trim() || "";
-    
+
             if (!selectedText) {
-            alert("No text selected to export.");
-            return;
+                alert("No text selected to export.");
+                return;
             }
             exportSalesforceNote({
                 pageTitle: document.title,
@@ -106,7 +106,7 @@ function processFullPageText() {
                         if (response.audioBase64) {
                             console.log("Recieved Audio.");
                             const audio = new Audio(
-                                'data:${response.audioContentType};base64,${response.audioBase64}'
+                                `data:${response.audioContentType};base64,${response.audioBase64}`
                             );
                             audio.playbackRate = speedPlay;
                             audio.play();
@@ -115,6 +115,7 @@ function processFullPageText() {
                         } else {
                             console.error("Failed to get TTS audio:", response.error);
                         }
+
                         currentAISummaryText = response.rewrittenText;
                         const box = document.getElementById("summaryBox");
                         box.textContent = currentAISummaryText;
