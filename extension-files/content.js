@@ -46,11 +46,16 @@ const modeCSS = {
     `,
 
     highContrast: `
-        html, body, div, span, p, a, li, ul, section, article, header, footer, nav, main {
+        html, body, div, span, p, a, li, ul, section, article, header, footer, nav, main, h1, h2, h3, h4, h5, h6, button{
             background: #000 !important;
             color: #fff !important;
         }
-        a {
+
+        code {
+            background: #424242ff !important;
+            color: #beb211ff !important;
+        }
+        a, button{
             color: #00ffff !important;
             text-decoration: underline !important;
         }
@@ -157,6 +162,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 console.log("SET_LANGUAGE applied to page:", msg.language);
             }
             sendResponse({ success: true });
+            return true;
+
+        case "GET_FULL_PAGE_TEXT":
+
+            const RAW_LIMIT = 12000; // stay safely below the ~13107 limit
+            const fulltext = document.body.innerText || '';
+            const sliced = fulltext.length > RAW_LIMIT ? fulltext.slice(0, RAW_LIMIT) : fulltext;
+
+            sendResponse({ text: sliced });
             return true;
 
         default:

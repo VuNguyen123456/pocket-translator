@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const highContrastBtn = document.getElementById("highContrastBtn");
     const playbackDropdown = document.getElementById("playback");
 
-    
+
     function sendToActiveTab(message, callback) {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (!tabs[0]?.id) return;
@@ -75,35 +75,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Function to get full page text and process it
 function processFullPageText() {
-    // Step 1: Get the entire text from the body of the page
-    const pageText = document.body.innerText;
-
-    if (pageText) {
-        // Step 2: Send the full page text to the background for LLM processing
-        chrome.runtime.sendMessage(
-            { type: "PROCESS_TEXT", text: pageText }, // Send the full page text to background.js
-            (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error("Error in background response:", chrome.runtime.lastError);
-                    return;
-                }
-
-                if (response && response.rewrittenText) {
-                    console.log("Rewritten text:", response.rewrittenText);
-                    // Now you can do something with the rewritten text (e.g., pass it to TTS)
-                    chrome.runtime.sendMessage({
-                        type: "TTS_REQUEST",
-                        text: response.rewrittenText,
-                        language: "en"
-                    });
-                } else {
-                    console.error("No rewritten text returned from background.");
-                }
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id;
+        if (!tabId) return;
+        chrome.tabs.sendMessage(tabId, { action: "GET_FULL_PAGE_TEXT" }, (res) => {
+            if (chrome.runtime.lastError) {
+                console.error("Content script unavailable:", chrome.runtime.lastError.message);
+                return;
             }
-        );
-    } else {
-        console.warn("No text found on the page.");
-    }
+
+            const pageText = res?.text || "";
+            if (!pageText) {
+                console.warn("No text returned from content script.");
+                return;
+            }
+            // Step 2: Send the full page text to the background for LLM processing
+            chrome.runtime.sendMessage(
+                { type: "PROCESS_TEXT", text: pageText }, // Send the full page text to background.js
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error in background response:", chrome.runtime.lastError);
+                        return;
+                    }
+
+                    if (response && response.rewrittenText) {
+                        console.log("Rewritten text:", response.rewrittenText);
+                        // Now you can do something with the rewritten text (e.g., pass it to TTS)
+                        /*chrome.runtime.sendMessage({
+                            type: "TTS_REQUEST",
+                            text: response.rewrittenText,
+                            language: "en"
+                        });*/
+                    } else {
+                        console.error("No rewritten text returned from background.");
+                    }
+                }
+            );
+
+        });
+    });
 }
 
 // Add event listener for button click to process the full page text
@@ -137,7 +147,7 @@ document.getElementById("readBtn").addEventListener("click", () => {
                         type: "TTS_REQUEST",
                         text: selectedText,
                         sourceLanguage: "",
-                        targetLanguage:lang
+                        targetLanguage: lang
                     },
                     (ttsResponse) => {
                         if (chrome.runtime.lastError) {
@@ -165,9 +175,9 @@ document.getElementById("readBtn").addEventListener("click", () => {
 });
 
 function spawnLanguageParticles() {
-const chars = [
-        "A","B","C","あ","字","語","ब","ك","Ω","Й","ñ","á","é","ü","ß",
-        "한","글","ض","ش","क","ह","你","我","한","語","є","δ"
+    const chars = [
+        "A", "B", "C", "あ", "字", "語", "ब", "ك", "Ω", "Й", "ñ", "á", "é", "ü", "ß",
+        "한", "글", "ض", "ش", "क", "ह", "你", "我", "한", "語", "є", "δ"
     ];
 
     const dropdown = document.getElementById("language-select");
@@ -211,8 +221,8 @@ const chars = [
 function exportSalesforceNote({ pageTitle, pageUrl, text }) {
     const payload = {
         attributes: {
-        type: "Note",
-        referenceId: "Webpage_Accessibility_Note"
+            type: "Note",
+            referenceId: "Webpage_Accessibility_Note"
         },
         Title: `Accessibility note: ${pageTitle || pageUrl || "Unknown page"}`,
         Body: text

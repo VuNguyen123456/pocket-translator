@@ -1,11 +1,11 @@
 body {
-    font-family: "Monocraft", sans-serif;
+    font-family: monospace, sans-serif;
     background: #f7f9fa;
     width: 260px;
     padding: 16px;
     margin: 0;
     box-shadow: 0 4px 2px rgba(0, 0, 0, 0.08);
-    
+
 }
 
 h1 {
@@ -46,9 +46,12 @@ button.active {
     background: #2c3799 !important;
     box-shadow: 0 0 6px rgba(0, 200, 255, 0.6) !important;
     border: 1px solid #6bb8ff !important;
-    border-radius: 4px !important;   /* << More rounded when active */
-    transform: scale(1.02);           /* Slight pop effect */
+    border-radius: 4px !important;
+    /* << More rounded when active */
+    transform: scale(1.02);
+    /* Slight pop effect */
 }
+
 button:active {
     transform: scale(0.97);
 }
@@ -89,17 +92,14 @@ select {
     animation: confettiBurst 0.9s ease-out forwards;
 }
 
-@keyframes confettiBurst {
+@keyframes burstFade {
     0% {
         opacity: 1;
-        transform: translate(0, 0) rotate(0deg) scale(1);
+        transform: translate(0, 0);
     }
-    70% {
-        opacity: 1;
-        transform: translate(var(--dx), var(--dy)) rotate(200deg) scale(1.1);
-    }
+
     100% {
         opacity: 0;
-        transform: translate(var(--dx), var(--dy)) rotate(360deg) scale(0.6);
+        transform: translate(var(--dx), var(--dy));
     }
 }
