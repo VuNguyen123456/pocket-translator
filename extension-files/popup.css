@@ -1,5 +1,5 @@
 body {
-    font-family: "Monocraft", sans-serif;
+    font-family: monospace, sans-serif;
     background: #f7f9fa;
     width: 260px;
     padding: 16px;
@@ -17,7 +17,7 @@ h1 {
 }
 
 button {
-    font-family: "Monocraft", sans-serif;
+    font-family: monospace, sans-serif;
     font-size: 16px;
     font-weight: 600;
 
@@ -69,7 +69,7 @@ hr {
 }
 
 select {
-    font-family: "Monocraft", sans-serif;
+    font-family: monospace, sans-serif;
     width: 100%;
     padding: 8px;
     margin-bottom: 12px;

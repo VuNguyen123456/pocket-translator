@@ -71,7 +71,7 @@ async function requestTTS(selectedText) {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				text: message.text,     // Text to be read aloud
+				text: message.text,     // Text to be read aloudranch
 				sourceLanguage:message.sourceLanguage ?? null,
 				targetLanguage: message.targetLanguage ?? null // If it needs to be translated
 			})
