@@ -6,7 +6,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 		const { text } = message;
 
 		try {
-			// Call the LLM API (using the function you defined for LLM)
+			// Call the LLM API (using the function you 			defined for LLM)
 			const rewrittenText = await callLlm("summarize", text); // or "summarize"
 
 			// Send the rewritten text back to popup.js
@@ -72,7 +72,8 @@ async function requestTTS(selectedText) {
 			},
 			body: JSON.stringify({
 				text: message.text,     // Text to be read aloud
-				language: message.language  // If it needs to be translated
+				sourceLanguage:message.sourceLanguage,
+				targetLanguage: message.targetLanguage // If it needs to be translated
 			})
 		});
 		if (!res.ok) {
@@ -101,8 +102,6 @@ async function requestTTS(selectedText) {
 			audioContentType: "audio/mp3"
 		};
 	}
-
-
 }
 
 

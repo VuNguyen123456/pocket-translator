@@ -1,19 +1,19 @@
 
 
 let speed = 1.0;
+let lang = "";
 
 
 document.addEventListener("DOMContentLoaded", () => {
 
     const readBtn = document.getElementById("readBtn");
-    const translateBtn = document.getElementById("translateBtn");
-    const accessibilityBtn = document.getElementById("playback");
+    const accessibilityBtn = document.getElementById("accessibilityModeBtn");
     const languageSelect = document.getElementById("language-select");
     const salesforceBtn = document.getElementById("salesforceBtn");
     const highContrastBtn = document.getElementById("highContrastBtn");
     const playbackDropdown = document.getElementById("playback");
 
-
+    
     function sendToActiveTab(message, callback) {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (!tabs[0]?.id) return;
@@ -30,23 +30,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    translateBtn.addEventListener("click", () => {
-        const lang = languageSelect.value;
-        chrome.runtime.sendMessage({ action: "TRANSLATE_READ", targetLang: lang }, response => {
-            if (!response?.success) return console.warn("Translation failed:", response?.error);
-            console.log("Translated text:", response.text);
-
-            if (response.audioBase64) {
-                //const audio = new Audio();
-                audio.play();
-            }
-        });
-    });
 
     //ADA mode
-    /*playbackDropdown.addEventListener("change", (e) => {
+    playbackDropdown.addEventListener("change", (e) => {
         speed = e.target.value;
-
     });
 
     accessibilityBtn.addEventListener("click", () => {
@@ -63,8 +50,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     languageSelect.addEventListener("change", (e) => {
-        sendToActiveTab({ action: "SET_LANGUAGE", language: e.target.value });
-    });*/
+        lang = e.target.value;
+        sendToActiveTab({ action: "SET_LANGUAGE", language: lang });
+    });
 
 });
 
@@ -110,11 +98,6 @@ document.getElementById("aiSummarizer").addEventListener("click", () => {
 });
 
 
-
-
-
-
-
 document.getElementById("readBtn").addEventListener("click", () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.tabs.sendMessage(
@@ -139,7 +122,8 @@ document.getElementById("readBtn").addEventListener("click", () => {
                     {
                         type: "TTS_REQUEST",
                         text: selectedText,
-                        language: "en"
+                        sourceLanguage: null,
+                        targetLanguage:lang
                     },
                     (ttsResponse) => {
                         if (chrome.runtime.lastError) {

@@ -19,11 +19,20 @@ const modeCSS = {
         a { color: #0ff !important; }
     `,
     adaMode: `
-        body { font-size: 22px !important; line-height: 1.8 !important; }
+        body 
+        {
+        font-size: 22px !important;
+        line-height: 1.8 !important;
+        }
         * { outline: 1px solid #000 !important; }
     `,
     salesforce: `
-        body { background: #f4f6f9 !important; color: #16325c !important; font-family: 'Salesforce Sans', sans-serif !important; }
+        body 
+        { 
+        background: #f4f6f9 !important; 
+        color: #16325c !important;
+        font-family: 'Salesforce Sans', sans-serif !important; 
+        }
     `
 
 };
@@ -116,7 +125,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const styleTag = styleTags["adaMode"];
             if (styleTag) {
                 styleTag.textContent = `
-                    body { font-size: ${20 * speed}px !important; line-height: ${1.8 * speed} !important; }
+                    body { 
+                    font-size: ${20 * speed}px !important;
+                    line-height: ${1.8 * speed} !important; 
+                    }
                     * { outline: 1px solid #000 !important; }
                 `;
             }
@@ -134,12 +146,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 document.documentElement.setAttribute("lang", msg.language);
                 console.log("SET_LANGUAGE applied to page:", msg.language);
             }
-            sendResponse({ success: true });
-            return true;
-
-        case "TRANSLATE_READ":
-            // Placeholder: you can integrate translation API here
-            console.log("TRANSLATE_READ requested for targetLang:", msg.targetLang);
             sendResponse({ success: true });
             return true;
 
