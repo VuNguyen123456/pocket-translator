@@ -15,6 +15,9 @@ const AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-0
 // Safety: limit how much text we send in one go (characters, not tokens).
 const LLM_MAX_INPUT_CHARS = Number(process.env.LLM_MAX_INPUT_CHARS || 8000);
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function chunkText(text, maxChars = 4000) {
   const chunks = [];
@@ -91,97 +94,141 @@ async function callAzureChat(
     max_tokens: maxTokens,
   };
 
-  const started = Date.now();
-  let res;
-  let data;
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 2000; // 2 seconds
 
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': AZURE_OPENAI_API_KEY,
-      },
-      body: JSON.stringify(body),
-    });
+  let attempt = 0;
+  let lastErr = null;
 
-    const text = await res.text();
+  while (attempt < MAX_RETRIES) {
+    const started = Date.now();
+    attempt += 1;
+
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // If Azure sent non-JSON, log raw text for debugging
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'azure_llm_response_parse_error',
+            requestId,
+            mode,
+            status: res.status,
+            body: text.slice(0, 500),
+          })
+        );
+        throw makeError('AzureOpenAIParseError', 'Failed to parse Azure OpenAI response as JSON.');
+      }
+
+      const latencyMs = Date.now() - started;
+
+      // Structured log
+      console.log(
+        JSON.stringify({
+          level: 'info',
+          event: 'azure_llm_call',
+          requestId,
+          mode,
+          text_length: textLength,
+          chunk_count: chunkCount,
+          latency_ms: latencyMs,
+          status: res.status,
+          attempt,
+        })
+      );
+
+      const azureError = data && data.error ? data.error : null;
+      const rateLimited =
+        res.status === 429 ||
+        azureError?.code === 'RateLimitReached' ||
+        azureError?.code === 'TooManyRequests';
+
+      // If rate-limited and we still have retries left → backoff + retry
+      if (rateLimited && attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            event: 'azure_llm_rate_limited',
+            requestId,
+            mode,
+            status: res.status,
+            azureError,
+            attempt,
+            retry_in_ms: delay,
+          })
+        );
+        await sleep(delay);
+        continue; // retry loop
+      }
+
+      // If not ok and not retryable, throw
+      if (!res.ok) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'azure_llm_http_error',
+            requestId,
+            mode,
+            status: res.status,
+            error: azureError,
+          })
+        );
+        throw makeError(
+          'AzureOpenAIHttpError',
+          `Azure OpenAI returned HTTP ${res.status}`,
+          { azureError }
+        );
+      }
+
+      const content = data?.choices?.[0]?.message?.content;
+      if (!content || typeof content !== 'string') {
+        throw makeError('AzureOpenAIContentError', 'No content in Azure OpenAI response.');
+      }
+
+      return content.trim();
+    } catch (err) {
+      lastErr = err;
+      const latencyMs = Date.now() - started;
+
       console.error(
         JSON.stringify({
           level: 'error',
-          event: 'azure_llm_response_parse_error',
+          event: 'azure_llm_network_error',
           requestId,
           mode,
-          status: res.status,
-          body: text.slice(0, 500),
+          text_length: textLength,
+          chunk_count: chunkCount,
+          latency_ms: latencyMs,
+          attempt,
+          message: err && err.message ? err.message : String(err),
         })
       );
-      throw makeError('AzureOpenAIParseError', 'Failed to parse Azure OpenAI response as JSON.');
+
+      // For network-type errors, you *could* also retry; up to you.
+      // Here we only retry on 429 above; for other errors we break.
+      break;
     }
-  } catch (err) {
-    const latencyMs = Date.now() - started;
-
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'azure_llm_network_error',
-        requestId,
-        mode,
-        text_length: textLength,
-        chunk_count: chunkCount,
-        latency_ms: latencyMs,
-        message: err && err.message ? err.message : String(err),
-      })
-    );
-
-    throw makeError('AzureOpenAINetworkError', 'Error calling Azure OpenAI.', { cause: err });
   }
 
-  const latencyMs = Date.now() - started;
-
-  // 🔹 Structured success log for CloudWatch / debugging
-  console.log(
-    JSON.stringify({
-      level: 'info',
-      event: 'azure_llm_call',
-      requestId,
-      mode,
-      text_length: textLength,
-      chunk_count: chunkCount,
-      latency_ms: latencyMs,
-      status: res.status,
-    })
-  );
-
-  if (!res.ok) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'azure_llm_http_error',
-        requestId,
-        mode,
-        status: res.status,
-        error: data && data.error ? data.error : null,
-      })
-    );
-    throw makeError(
-      'AzureOpenAIHttpError',
-      `Azure OpenAI returned HTTP ${res.status}`,
-      { azureError: data && data.error ? data.error : undefined }
-    );
-  }
-
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content || typeof content !== 'string') {
-    throw makeError('AzureOpenAIContentError', 'No content in Azure OpenAI response.');
-  }
-
-  return content.trim();
+  // If we got here, retries failed
+  throw lastErr || makeError('AzureOpenAIError', 'Azure OpenAI call failed after retries.');
 }
+
+
+ 
 
 /**
  * Clamp text to a maximum length so we don't blow past token limits.
