@@ -91,7 +91,7 @@ function processFullPageText() {
                 console.warn("No text returned from content script.");
                 return;
             }
-            // Step 2: Send the full page text to the background for LLM processing
+            // Send the full page text to the background for LLM processing
             chrome.runtime.sendMessage(
                 { type: "PROCESS_TEXT", text: pageText }, // Send the full page text to background.js
                 (response) => {
