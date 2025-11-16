@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         case "GET_FULL_PAGE_TEXT":
 
-            const RAW_LIMIT = 12000; // stay safely below the ~13107 limit
+            const RAW_LIMIT = 3000; // stay safely below the ~13107 limit
             const fulltext = document.body.innerText || '';
             const sliced = fulltext.length > RAW_LIMIT ? fulltext.slice(0, RAW_LIMIT) : fulltext;
 

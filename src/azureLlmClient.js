@@ -7,8 +7,8 @@ const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
 const { makeError } = require('./utils');
 
 // These env vars are injected in Lambda so no secrets live in code.
-const AZURE_OPENAI_ENDPOINT   = process.env.AZURE_OPENAI_ENDPOINT;   // e.g. "https://my-resource.openai.azure.com"
-const AZURE_OPENAI_API_KEY    = process.env.AZURE_OPENAI_API_KEY;
+const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;   // e.g. "https://my-resource.openai.azure.com"
+const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT; // e.g. "gpt-4o-mini" or your deployment name
 const AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
 
@@ -228,7 +228,7 @@ async function callAzureChat(
 }
 
 
- 
+
 
 /**
  * Clamp text to a maximum length so we don't blow past token limits.
@@ -274,7 +274,7 @@ async function simplifyText(text, { requestId } = {}) {
 
     const content = await callAzureChat(messages, {
       temperature: 0.25,
-      maxTokens: 800,
+      maxTokens: 400,
       requestId,
       mode,
       textLength: input.length,
@@ -298,7 +298,7 @@ async function simplifyText(text, { requestId } = {}) {
 
     const part = await callAzureChat(messages, {
       temperature: 0.25,
-      maxTokens: 800,
+      maxTokens: 400,
       requestId,
       mode,
       textLength: c.length,
@@ -346,7 +346,7 @@ async function summarizeText(text, { requestId } = {}) {
 
     const content = await callAzureChat(messages, {
       temperature: 0.3,
-      maxTokens: 600,
+      maxTokens: 300,
       requestId,
       mode,
       textLength: input.length,
@@ -370,7 +370,7 @@ async function summarizeText(text, { requestId } = {}) {
 
     const bullets = await callAzureChat(messages, {
       temperature: 0.3,
-      maxTokens: 600,
+      maxTokens: 300,
       requestId,
       mode,
       textLength: c.length,
@@ -393,7 +393,7 @@ async function summarizeText(text, { requestId } = {}) {
 
   const finalSummary = await callAzureChat(finalMessages, {
     temperature: 0.3,
-    maxTokens: 600,
+    maxTokens: 300,
     requestId,
     mode,
     textLength: input.length,
