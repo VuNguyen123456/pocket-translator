@@ -106,7 +106,7 @@ function processFullPageText() {
                         if (response.audioBase64) {
                             console.log("Recieved Audio.");
                             const audio = new Audio(
-                                'data:${response.audioContentType};base64,${response.audioBase64}'
+                                `data:${response.audioContentType};base64,${response.audioBase64}`
                             );
                             audio.playbackRate = speedPlay;
                             audio.play();
@@ -224,16 +224,15 @@ function spawnLanguageParticles() {
 
     // Popup root
     const popup = document.body;
+    // Adjust for scroll position
+    const offsetX = rect.left + rect.width / 2 + window.scrollX;
+    const offsetY = rect.top + rect.height / 2 + window.scrollY;
 
     for (let i = 0; i < 30; i++) {
         const el = document.createElement("div");
         el.className = "language-particle";
 
         el.textContent = chars[Math.floor(Math.random() * chars.length)];
-
-        // Position relative to popup
-        const offsetX = rect.left + rect.width / 2 - popup.offsetLeft;
-        const offsetY = rect.top + rect.height / 2 - popup.offsetTop;
 
         el.style.left = offsetX + "px";
         el.style.top = offsetY + "px";
