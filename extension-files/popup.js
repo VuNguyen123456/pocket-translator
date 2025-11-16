@@ -1,8 +1,7 @@
 
-
 let speedPlay = 1.0;
 let lang = "";
-
+let currentAISummaryText = "";
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -104,11 +103,22 @@ function processFullPageText() {
                     if (response && response.rewrittenText) {
                         console.log("Rewritten text:", response.rewrittenText);
                         // Now you can do something with the rewritten text (e.g., pass it to TTS)
-                        /*chrome.runtime.sendMessage({
-                            type: "TTS_REQUEST",
-                            text: response.rewrittenText,
-                            language: "en"
-                        });*/
+                        if (response.audioBase64) {
+                            console.log("Recieved Audio.");
+                            const audio = new Audio(
+                                'data:${response.audioContentType};base64,${response.audioBase64}'
+                            );
+                            audio.playbackRate = speedPlay;
+                            audio.play();
+
+                            //spawnLanguageParticles();
+                        } else {
+                            console.error("Failed to get TTS audio:", response.error);
+                        }
+                        currentAISummaryText = response.rewrittenText;
+                        const box = document.getElementById("summaryBox");
+                        box.textContent = currentAISummaryText;
+
                     } else {
                         console.error("No rewritten text returned from background.");
                     }
@@ -123,6 +133,30 @@ function processFullPageText() {
 document.getElementById("aiSummarizer").addEventListener("click", () => {
     processFullPageText(); // Call function to process the entire page text
 });
+
+document.getElementById("downloadSummaryBtn").addEventListener("click", () => {
+    const summary = currentAISummaryText;  // however you're storing the AI summary
+
+    if (!summary || summary.trim() === "") {
+        alert("No AI summary available to download.");
+        return;
+    }
+
+    downloadTextFile("summary.txt", summary);
+});
+
+document.getElementById("copySummaryBtn").addEventListener("click", () => {
+    if (!currentAISummaryText.trim()) {
+        alert("No summary to copy.");
+        return;
+    }
+
+    navigator.clipboard.writeText(currentAISummaryText)
+        .then(() => alert("Summary copied to clipboard!"))
+        .catch(() => alert("Failed to copy."));
+});
+
+
 
 
 document.getElementById("readBtn").addEventListener("click", () => {
@@ -243,5 +277,17 @@ function exportSalesforceNote({ pageTitle, pageUrl, text }) {
     document.body.appendChild(a);
     a.click();
     a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function downloadTextFile(filename, text) {
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+
     URL.revokeObjectURL(url);
 }

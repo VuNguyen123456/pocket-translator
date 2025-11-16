@@ -18,6 +18,20 @@ h1 {
 
 button {
     font-family: monospace, sans-serif;
+    width: 100%;
+    background: #5b8cff;
+    border: none;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    gap: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: 0.2s;
+    /*font-family: monospace, sans-serif;
     font-size: 16px;
     font-weight: 600;
 
@@ -25,6 +39,7 @@ button {
 
     width: 100%;
 
+    gap: 10px;
     padding: 14px;
     margin-bottom: 10px;
     border: none;
@@ -33,20 +48,22 @@ button {
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.2s ease, transform 0.1s ease, border-radius 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);*/
+
 }
 
 button:hover {
     background: #2c3799;
-    border-color: #7b42ff;
-    border-radius: 4px;
+    border-radius: 10px;
     box-shadow: 0 0 8px #85e7ff;
+    transform: translateY(-1px);
+
 }
 
 button.active {
     background: #2c3799 !important;
-    box-shadow: 0 0 6px rgba(0, 200, 255, 0.6) !important;
     border: 1px solid #6bb8ff !important;
-    border-radius: 4px !important;
+    border-radius: 10px !important;
     /* << More rounded when active */
     transform: scale(1.02);
     /* Slight pop effect */
@@ -75,8 +92,8 @@ select {
     font-family: monospace, sans-serif;
     width: 100%;
     padding: 8px;
-    margin-bottom: 12px;
-    border-radius: 6px;
+    margin-bottom: 16px;
+    border-radius: 8px;
     border: 1px solid #ccc;
     font-size: 14px;
 }
@@ -102,3 +119,71 @@ select {
         transform: translate(var(--dx), var(--dy));
     }
 }
+
+.popup-container {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #111;
+        --text: #eee;
+        --card: #1b1b1b;
+        --border: #333;
+    }
+}
+
+#summaryContainer {
+    margin-top: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    background: #fafafa;
+}
+
+#summaryHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+#summaryHeader span {
+    font-weight: bold;
+}
+
+#summaryHeader button {
+    background: #007aff;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+#summaryHeader button:hover {
+    background: #0060d1;
+}
+
+#summaryBox {
+    max-height: 140px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    padding: 6px;
+    background: white;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.summary-action-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+    margin: 4px;
+    border-radius: 5px;
+}
+
