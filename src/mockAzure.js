@@ -1,7 +1,9 @@
+// Powered by Chatgpt
 // src/mockAzure.js
 // A tiny Express app that simulates the Azure Function TTS endpoint.
 // Great for local Lambda testing without hitting Azure quota.
 // Run: node src/mockAzure.js
+// Not necessary for running the extension
 const express = require('express');
 const bodyParser = require('body-parser');
 const { sign } = require('./utils');
