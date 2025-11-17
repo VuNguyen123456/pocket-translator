@@ -1,4 +1,4 @@
-// Powered by Chatgpt
+// Powered by Chatgpt + PatriotRead team
 // src/testLocalRequest.js
 const fs = require('fs');
 const handler = require('./handler').handler;
