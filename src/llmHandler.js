@@ -1,5 +1,5 @@
 /**
- * Powered by Chatgpt
+ * Powered by Chatgpt + PatriotRead team
  * Lambda handler for the /llm endpoint.
  *
  * This function is deployed as an AWS Lambda and exposed via API Gateway (POST /llm).
