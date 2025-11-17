@@ -1,4 +1,4 @@
-// Powered by Chatgpt
+// Powered by Chatgpt + PatriotRead team
 // src/azureLlmClient.js
 // Azure OpenAI "mini" client for simplify/summarize features.
 
