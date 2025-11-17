@@ -1,4 +1,4 @@
-// Powered by Chatgpt
+// Powered by Chatgpt + PatriotRead team
 // src/mockAzure.js
 // A tiny Express app that simulates the Azure Function TTS endpoint.
 // Great for local Lambda testing without hitting Azure quota.
