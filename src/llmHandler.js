@@ -1,4 +1,5 @@
 /**
+ * Powered by Chatgpt + PatriotRead team
  * Lambda handler for the /llm endpoint.
  *
  * This function is deployed as an AWS Lambda and exposed via API Gateway (POST /llm).
@@ -6,7 +7,7 @@
  *   { mode: "simplify" | "summarize", text: string, requestId: string }
  *
  * We call Azure OpenAI (deployment: gpt-4.1-mini-2) via azureLlmClient.js to:
- *   - simplifyText(text)   when mode === "simplify"
+ *   - simplifyText(text)   when mode === "simplify" (not yet used)
  *   - summarizeText(text)  when mode === "summarize"
  *
  * The response is normalized to:
@@ -99,7 +100,6 @@ async function handler(event) {
     text = clampText(body.text || '');
 
     // Optional TTS configuration from the request body.
-    // If not provided, we’ll just return text like before.
     const tts = body.tts || {};
     const wantTts = !!tts.enabled;
 
@@ -124,7 +124,7 @@ async function handler(event) {
       );
     }
 
-    // 🧠 LLM step
+    // LLM step
     let outputText;
 
     if (mode === 'simplify') {
@@ -133,7 +133,7 @@ async function handler(event) {
       outputText = await summarizeText(text, { requestId });
     }
 
-    // 🔊 NEW: optional TTS step
+    // optional TTS step
     let ttsResult = null;
 
     if (wantTts) {
@@ -180,7 +180,7 @@ async function handler(event) {
       }
     }
 
-    // ✅ Final response
+    // Final response
     return buildResponse(200, {
       success: true,
       requestId,
