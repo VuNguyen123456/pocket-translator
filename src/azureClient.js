@@ -1,4 +1,4 @@
-//Powered by Chatgpt 
+//Powered by Chatgpt + PatriotRead team
 // src/azureClient.js
 // Lazy-load node-fetch so the same file works in Lambda (CommonJS) and locally.
 const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
