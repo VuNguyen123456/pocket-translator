@@ -33,11 +33,6 @@ const modeCSS = {
         margin-right: auto !important;
     }
 
-    /* Remove clutter */
-    nav, header, footer, aside, .ad, [role="banner"], [role="navigation"] {
-        display: none !important;
-    }
-
     /* Better selection */
     ::selection {
         background: #ffd54f !important;
