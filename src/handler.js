@@ -1,4 +1,4 @@
-//Powered by Chatgpt
+//Powered by Chatgpt + PatriotRead team
 // src/handler.js
 const { isValidLanguage, makeError } = require('./utils');
 const { callAzure } = require('./azureClient');
