@@ -1,3 +1,4 @@
+//Powered by Chatgpt + PatriotRead team
 // src/handler.js
 const { isValidLanguage, makeError } = require('./utils');
 const { callAzure } = require('./azureClient');
@@ -66,9 +67,7 @@ exports.handler = async function(event) {
   const outFormat = (format === 'audio/wav') ? 'audio/wav' : 'audio/mp3';
 
   /**
-   * Payload that AWS sends to Azure. This is the only contract the Azure team
-   * needs to honor: if they add translation/simplification they can look for
-   * the optional translateTo/simplify flags, otherwise ignore them.
+   * Payload that AWS sends to Azure.
    */
   const azurePayload = {
     requestId: requestId || (Math.random().toString(36).slice(2)),

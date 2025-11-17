@@ -1,3 +1,4 @@
+// Powered by Chatgpt + PatriotRead team
 // src/utils.js
 const crypto = require('crypto');
 

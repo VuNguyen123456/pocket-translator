@@ -1,3 +1,4 @@
+//Powered by Chatgpt + PatriotRead team
 // src/azureClient.js
 // Lazy-load node-fetch so the same file works in Lambda (CommonJS) and locally.
 const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
@@ -12,9 +13,9 @@ const VOICE_FALLBACK = 'en-US-JennyNeural';
 const VOICE_MAP = {
   'en-US': 'en-US-JennyNeural',
   'es-ES': 'es-ES-ElviraNeural',
-  'fr-FR': 'fr-FR-DeniseNeural',
+  'fr-FR': 'fr-FR-DeniseNeural'/*,
   'zh-CN': 'zh-CN-XiaoxiaoNeural',
-  'ar-SA': 'ar-SA-ZariyahNeural'
+  'ar-SA': 'ar-SA-ZariyahNeural'*/
 };
 
 const AUDIO_FORMATS = {

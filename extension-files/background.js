@@ -2,7 +2,7 @@
 
 
 
-// Call to LLM (this is the function from earlier)
+// Call to LLM 
 async function callLlm(mode, text) {
 	const LLM_API_URL = "https://5tp98l0di6.execute-api.us-east-1.amazonaws.com/prod/llm";
 

@@ -1,7 +1,9 @@
+// Powered by Chatgpt + PatriotRead team
 // src/mockAzure.js
 // A tiny Express app that simulates the Azure Function TTS endpoint.
 // Great for local Lambda testing without hitting Azure quota.
 // Run: node src/mockAzure.js
+// Not necessary for running the extension
 const express = require('express');
 const bodyParser = require('body-parser');
 const { sign } = require('./utils');
@@ -16,7 +18,7 @@ app.post('/api/tts', (req, res) => {
   const ts = req.header('X-Azure-Ts') || '';
   const sig = req.header('X-Azure-Sig') || '';
   // In production Azure should verify the signature; the mock just trusts it.
-  // Return a tiny 1-second silent MP3 base64 (or you can supply your own)
+  // Return a tiny 1-second silent MP3 base64 or supply own
   const sampleBase64 = "SUQzAwAAAAAA..."; // placeholder, but we'll return a tiny beep (below)
   const response = {
     success: true,
@@ -32,9 +34,8 @@ app.post('/api/tts', (req, res) => {
 });
 
 function SAMPLE_BASE64() {
-  // A short silent mp3 base64 (or small beep). If you have a small mp3 base64, paste it here.
-  // For quick dev you can use a tiny base64 string; the browser might not play it but can be saved.
-  // We'll use an extremely short valid mp3 header base64 for demo (may not be audible).
+  // A short silent mp3 base64 (or small beep). If a small mp3 base64, can be pasted here.
+  // For quick dev a tiny base64 string can work
   return "SUQzAwAAAAAAAwAAAAEAAABkAAACAAACAA==";
 }
 
