@@ -2,6 +2,7 @@
 
 A comprehensive browser extension that makes websites more accessible through Text-to-Speech (TTS), AI-powered summarization, visual accessibility modes, and more. Built for PatriotHacks hackathon.
 
+[https://www.youtube.com/watch?v=RzfKe3H4noU](https://www.youtube.com/watch?v=RzfKe3H4noU)
 ## 🎯 Features
 
 ### Core Features
